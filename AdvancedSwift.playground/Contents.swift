@@ -51,7 +51,7 @@ func divide(_ lhs: Float, _ rhs: Float) -> Float {
     return lhs / rhs
 }
 func printResult(of arrayCount: Float, dividedBy number: Float) {
-     print(divide(arrayCount, number))
+    print(divide(arrayCount, number))
 }
 func plusMins(_ arr: [Int]) {
     let arrayCount = arr.count.asFloat
@@ -69,6 +69,25 @@ func plusMins(_ arr: [Int]) {
 plusMins(fibs)
 printResult(of: 2, dividedBy: 6)
 
+let staircaseNumber = 6
+func staircase(n: Int) -> Void {
+    var hashStair = ""
+    var hashString = ""
+    var padding: Int = n - 1
+    var paddingString = String()
+    for _ in 0..<n {
+        hashString += "#"
+        for _ in 0..<padding {
+            paddingString += " "
+        }
+        padding -= 1
+        hashStair += "\(paddingString)\(hashString)\n"
+        paddingString = ""
+    }
+    print(hashStair)
+}
+
+staircase(n: 4)
 
 
 
