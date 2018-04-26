@@ -218,6 +218,35 @@ struct Library {
     let languages: [Language]
 }
 
+struct Transaction: Decodable {
+    let side : String
+    let transactionType: String
+    let amount: String
+    let balance: String
+    let accountType: String
+    let transactionId: String
+    let timeStamp: String
+}
+
+let randomString = (UUID().uuidString)
+let transactionsJSON = """
+{
+    "transactions":[
+    {
+        "transaction":{
+            "side":"CR",
+            "TransactionType":"Funding",
+            "amount":"100.00",
+            "balance":"100.00",
+            "accountType":"KK",
+            "transactionId":"\(randomString)",
+            "timestamp":"2017-09-10 18:14::45"
+            }
+        }
+    ]
+}
+""".data(using: .utf8)!
+
 
 
 
