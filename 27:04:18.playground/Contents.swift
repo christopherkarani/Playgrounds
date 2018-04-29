@@ -43,17 +43,15 @@ struct Library {
     let languages: [Language]
     
     struct LibraryKeys: CodingKey {
-        
         var stringValue: String
-        
         init?(stringValue: String) {
             self.stringValue = stringValue
         }
         
-        init?(intValue: Int) { return nil}
         var intValue: Int? { return nil}
+        init?(intValue: Int) { return nil}
         
-        static let languageKey = LibraryKeys(stringValue: "languages")!
+        static let languages = LibraryKeys(stringValue: "languages")!
     }
     
     enum LanguageKeys: String, CodingKey {
@@ -65,21 +63,22 @@ struct Library {
 extension Library: Decodable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: LibraryKeys.self)
-        let languagesContainer = try container.nestedContainer(keyedBy: LibraryKeys.self, forKey: .languageKey)
-        self.languages = try languagesContainer.allKeys.map { (key) -> Language in
-            let languageContainer = try languagesContainer.nestedContainer(keyedBy: LanguageKeys.self, forKey: key)
-            let languageName = key.stringValue
-            let languageDesigner = try languageContainer.decode([String].self, forKey: .designer)
-            let languageReleaseDate = try languageContainer.decode(String.self, forKey: .released)
-            return Language(name: languageName, designer: languageDesigner, releaseDate: languageReleaseDate)
+        let languagesContainer = try container.nestedContainer(keyedBy: LibraryKeys.self, forKey: .languages)
+        languages = try languagesContainer.allKeys.map {
+            let languageContainer = try languagesContainer.nestedContainer(keyedBy: LanguageKeys.self, forKey: $0)
+            let name = $0.stringValue
+            let designer = try languageContainer.decode([String].self, forKey: .designer)
+            let released = try languageContainer.decode(String.self, forKey: .released)
+            
+            return Language(name: name, designer: designer, releaseDate: released)
         }
     }
 }
 
 let decoder = JSONDecoder()
+let lib = try! decoder.decode(Library.self, from: json)
 
-let languages = try! decoder.decode(Library.self, from: json)
-languages.languages.forEach { print($0.name) }
-
-
+lib.languages.forEach {
+    print($0.name)
+}
 

@@ -218,7 +218,7 @@ struct Library {
     let languages: [Language]
 }
 
-struct Transaction: Decodable {
+struct Transaction {
     let side : String
     let transactionType: String
     let amount: String
@@ -226,6 +226,39 @@ struct Transaction: Decodable {
     let accountType: String
     let transactionId: String
     let timeStamp: String
+    
+    enum OuterKeys: String, CodingKey {
+        case transactions
+    }
+    
+    enum MediumKeys: String, CodingKey {
+        case transaction
+    }
+    
+    enum Keys : String, CodingKey {
+        case side
+        case transactionType
+        case amount
+        case balance
+        case accountType
+        case transactionId
+        case timeStamp
+    }
+}
+
+extension Transaction: Decodable {
+    init(from decoder : Decoder) throws {
+        let container = try decoder.container(keyedBy: OuterKeys.self)
+        let innerContainer = try container.nestedContainer(keyedBy: MediumKeys.self, forKey: .transactions)
+        let innerMostContainer = try innerContainer.nestedContainer(keyedBy: Keys.self, forKey: .transaction)
+        side = try innerMostContainer.decode(String.self, forKey: .side)
+        transactionType = try innerMostContainer.decode(String.self, forKey: .transactionType)
+        amount = try innerMostContainer.decode(String.self, forKey: .amount)
+        balance = try innerMostContainer.decode(String.self, forKey: .balance)
+        accountType = try innerMostContainer.decode(String.self, forKey: .accountType)
+        transactionId = try innerMostContainer.decode(String.self, forKey: .transactionId)
+        timeStamp = try innerMostContainer.decode(String.self, forKey: .timeStamp)
+    }
 }
 
 let randomString = (UUID().uuidString)
@@ -246,6 +279,9 @@ let transactionsJSON = """
     ]
 }
 """.data(using: .utf8)!
+
+
+let transaction = try! decoder.decode(Transaction.self, from: transactionsJSON)
 
 
 
