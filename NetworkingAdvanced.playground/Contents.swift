@@ -3,6 +3,14 @@
 import UIKit
 import PlaygroundSupport
 
+
+extension Data {
+    /** convienient way to check data string */
+    var stringDescription: String {
+        return String(data: self, encoding: .utf8)!
+    }
+}
+
 var str = "Hello, playground"
 
 let url = URL(string: "https://jsonplaceholder.typicode.com/posts")
@@ -10,10 +18,7 @@ let usersUrl = URL(string: "https://jsonplaceholder.typicode.com/users")
 
 
 struct Post {
-    
     static let postUrl = URL(string: "https://jsonplaceholder.typicode.com/posts")
-    
-    
     let userID : Int
     let id : Int
     let title : String
@@ -54,10 +59,10 @@ extension Post: Encodable {
 }
 
 extension Post {
-    static let all = Resource<[Post]>(url: url!, parseJSON: { (data) -> [Post]? in
-        let decoder = JSONDecoder()
-        return try? decoder.decode([Post].self, from: data)
-    })
+//    static let all = Resource<[Post]>(url: url!, parseJSON: { (data) -> [Post]? in
+//        let decoder = JSONDecoder()
+//        return try? decoder.decode([Post].self, from: data)
+//    })
 }
 
 
@@ -83,38 +88,53 @@ struct User: Codable {
 
 struct Resource<T> {
     var url: URL
+    var method: HttpMethod<Data>
     var parse : (Data) -> T?
-    var method: HttpMethod
+}
+extension HttpMethod {
+    func map<T>(_ f: (Body) -> T ) -> HttpMethod<T> {
+        switch self {
+        case .get: return .get
+        case .post(let body):
+            return .post(f(body))
+        }
+    }
 }
 
 
-extension Resource where T: Decodable {
-    init(url: URL, method: HttpMethod = .get, parseJSON: (Data) -> T?) {
+extension Resource where T: Codable {
+    init(url: URL, method: HttpMethod<Any>, parseJSON: (Data) -> T?) {
         self.url = url
-//        switch method {
-//        case .get: self.method = .get
-//        case .post(let json):
-//
-//        }
+        self.method = method.map { data in
+            try! JSONSerialization.data(withJSONObject: data, options: .prettyPrinted)
+        }
         self.parse = { data in
             let decoder = JSONDecoder()
-            let posts = try? decoder.decode(T.self, from: data)
-            return posts
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let jsonDecode = try? decoder.decode(T.self, from: data)
+            return jsonDecode
         }
     }
     
 }
-func postResource(for post: Post) -> Resource<Bool> {
-    let url = Post.postUrl
-    let encoder = JSONEncoder()
-    let postJSON = try! encoder.encode(post)
-    let resource = Resource<Bool>(url: url!, method: .post(<#T##Data#>), parseJSON: <#T##(Data) -> Bool?#>)
+func postResource(for post: Post) -> Resource<Post> {
+    let url = Post.postUrl!
+    let postJSONDictionary : [String: Any] = ["id": post.id,
+                              "userId": post.userID,
+                              "title": post.title,
+                              "body": post.body]
     
+    let postResource = Resource<Post>(url: url, method: .post(postJSONDictionary), parseJSON: { (data) -> Post? in
+        let decoder = JSONDecoder()
+        let response = try! decoder.decode(Post.self, from: data)
+        return response
+    })
+    return postResource
 }
 
-enum HttpMethod {
+enum HttpMethod<Body> {
     case get
-    case post(Data)
+    case post(Body)
 }
 
 extension HttpMethod {
@@ -126,44 +146,54 @@ extension HttpMethod {
     }
 }
 
+extension URLRequest {
+    init<A>( _ resource: Resource<A>) {
+        self.init(url: resource.url)
+        httpMethod = resource.method.method
+        if case let .post(data) = resource.method {
+            httpBody = data
+        }
+    }
+}
+
 final class Webservice {
     func load<A>(resource: Resource<A>, completion: @escaping (A?) -> () ) {
-        URLSession.shared.dataTask(with: resource.url) { (data, _, error) in
-            if let error = error {
-                print(error.localizedDescription)
-                return
-            }
-            guard let data = data else {
-                completion(nil)
-                return
-            }
-            completion(resource.parse(data))
-            
+        let request = URLRequest(url: resource.url)
+        URLSession.shared.dataTask(with: request) { (data, _, error) in
+            completion(resource.parse(data!))
         }.resume()
     }
     
 }
 
-let usersResource = Resource<[User]>(url: usersUrl!) { (data) -> [User]? in
+let usersResource = Resource<[User]>(url: usersUrl!, method: .get, parse: { (data) -> [User]? in
     let decoder = JSONDecoder()
     let user = try! decoder.decode([User].self, from: data)
     return user
-}
+})
 
 var postsX = [Post]()
-Webservice().load(resource: Post.all) { (posts) in
-    guard let unwrapppedPosts = posts else {return }
-    print(unwrapppedPosts.first!)
-}
-
-Webservice().load(resource: usersResource) { (users) in
-    guard let users = users else { return }
-}
+//Webservice().load(resource: Post.all) { (posts) in
+//    //guard let unwrapppedPosts = posts else {return }
+//}
+//
+//Webservice().load(resource: usersResource) { (users) in
+//   // guard let users = users else { return }
+//}
 
 
 struct Sprite: Codable {
     let frontDefault: String
     let frontShiny: String
+}
+
+extension Sprite {
+    static func resource(for url: URL) -> Resource<UIImage> {
+        return Resource<UIImage>(url: url, method: .get, parse: { (data) -> UIImage? in
+            return  UIImage(data: data)
+        })
+    }
+
 }
 
 
@@ -174,49 +204,137 @@ struct Pikachu: Codable {
     var sprites : Sprite
 }
 
-let pokemonResource = Resource<Pikachu>(url: Pikachu.url!) { (data) -> Pikachu? in
+let pokemonResource = Resource<Pikachu>(url: Pikachu.url!, method: .get, parse: { data in
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     let pikachu = try! decoder.decode(Pikachu.self, from: data)
     return pikachu
+})
+
+
+struct DataStorage<T> {
+    private var data = [T]()
+    
+    mutating public func insert(data t: T) {
+        data.append(t)
+    }
+    
+    mutating public func pop() -> T? {
+        guard !data.isEmpty else { return nil }
+        return data.removeLast()
+    }
+    
+    public func read() -> [T] {
+        return data
+    }
+    
+    public func statusPrint() {
+        print("Number of Items in collection: \(data.count)")
+    }
 }
+
+var imageStore = DataStorage<UIImage>()
 
 
 
 Webservice().load(resource: pokemonResource) { (pokemon) in
-    //print(pokemon?.sprites)
     guard let pikachu = pokemon else { return }
-    let urlFront = URL(string: pikachu.sprites.frontDefault)
-    let spriteRescource = Resource<UIImage>(url: urlFront!, parse: { (data) -> UIImage? in
-        let image = UIImage(data: data)
-        return image
-    })
-    
-    Webservice().load(resource: spriteRescource, completion: { (image) in
-        
+    guard let urlFront = URL(string: pikachu.sprites.frontDefault) else { fatalError() }
+    Webservice().load(resource: Sprite.resource(for: urlFront), completion: { (image) in
+        guard let anImage = image  else { return }
+        imageStore.insert(data: anImage)
     })
 }
 
 
 
 
+class CustomCollectionCell: UICollectionViewCell {
+    static var id : String {
+        return "CellID"
+    }
+    var imageView : UIImageView = {
+        let iv = UIImageView()
+        iv.contentMode = .scaleAspectFill
+        iv.clipsToBounds = true
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        return iv
+    }()
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        addSubview(imageView)
+        NSLayoutConstraint.activate([
+            imageView.topAnchor.constraint(equalTo: topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            imageView.rightAnchor.constraint(equalTo: rightAnchor),
+            imageView.leftAnchor.constraint(equalTo: leftAnchor)
+            ])
+    }
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
 
+class CollectionViewDelegate: NSObject, UICollectionViewDelegateFlowLayout {
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
+        let dimension = (collectionView.frame.width - 2) / 3
+        return CGSize(width: dimension, height: dimension)
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat { return 1 }
+    
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat { return 1 }
+}
 
+class CollectionViewDataSource: NSObject, UICollectionViewDataSource {
+    var items = imageStore.read()
+    
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return items.count
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: CustomCollectionCell.id, for: indexPath) as! CustomCollectionCell
+         let media = items[indexPath.item]
+        cell.imageView.image = media
+        return cell
+        
+    }
+}
 
+class CollectionViewController: UICollectionViewController {
+    let delegate = CollectionViewDelegate()
+    let dataSource = CollectionViewDataSource()
+    func setupCell() {
+        collectionView?.register(CustomCollectionCell.self, forCellWithReuseIdentifier: CustomCollectionCell.id)
+        
+        collectionView?.dataSource = dataSource
+        collectionView?.delegate = delegate
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupCell()
+    }
+}
 
+let postablePost = Post(userID: 45, id: 666, title: "I Posted This Story", body: "This story was posted from a Macbook pro, and this network request was done in swift")
 
-
-
-
-
-
-
-
-
-
+let postRes = postResource(for: postablePost)
+Webservice().load(resource: postRes) { (post) in
+    guard let post = post else {
+        print("No post response")
+        return
+    }
+    
+    print(post)
+}
 
 
 
 
 
 PlaygroundPage.current.needsIndefiniteExecution = true
+//PlaygroundPage.current.liveView = CollectionViewController()
+

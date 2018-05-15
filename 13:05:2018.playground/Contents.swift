@@ -188,6 +188,30 @@ func find(insideString text: String) -> String {
     return str
 }
 
+
+func find(inside text: String) -> String {
+    var originalArray = text.reversed().filter { char in
+        return char.notEqual(to: "/")
+    }
+    
+    for char in originalArray where char.isEqual(to: "v".toCharacter) {
+        guard let index = originalArray.index(of: char) else { fatalError() }
+        originalArray.remove(at: index - 1) // remove value before
+    }
+    
+    let numbersOnly = originalArray.compactMap { char -> Character? in
+        if char.isInteger {
+            return char
+        }
+        return nil
+    }
+    
+    let str = numbersOnly.combinePokedexNumbers()
+    return str
+}
+
+find(inside: urlString)
+
 find(insideString: urlString)
 
 PlaygroundPage.current.needsIndefiniteExecution = true
