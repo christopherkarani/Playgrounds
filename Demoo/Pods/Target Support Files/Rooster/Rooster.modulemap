@@ -1,0 +1,6 @@
+framework module Rooster {
+  umbrella header "Rooster-umbrella.h"
+
+  export *
+  module * { export * }
+}
