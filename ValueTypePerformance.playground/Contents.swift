@@ -54,14 +54,76 @@ let copy = theData
  var copyCat = data
  
  //
- data.append(sampleBytes)
- copyCat
+// data.append(sampleBytes)
+// copyCat
+ 
+ 
+ class Box<T> {
+    let item: T
+    init(_ type: T) {
+        self.item = type
+    }
+ }
+ 
+ 
+ enum Gender {
+    case male, female
+ }
+ 
+ extension Gender: Equatable {
+    static func ==(_ lhs: Gender, _ rhs: Gender) -> Bool {
+        switch (lhs, rhs) {
+        case (.male, .male):
+            return true
+        case (.male, .female):
+            return false
+        case (.female, .female):
+            return true
+        case (.female, .male):
+            return false
+        }
+    }
+ }
  
  
  
+ struct Human {
+    let name: String
+    let age : Int
+    let gender: Gender
+ }
+ 
+ extension Human: Equatable {
+    static func ==(_ lhs: Human, _ rhs: Human) -> Bool {
+        let nameCheck = lhs.name == rhs.name
+        let ageCheck = lhs.age == rhs.age
+        let genderCheck = lhs.gender == rhs.gender
+        return nameCheck && ageCheck && genderCheck
+    }
+ }
+ 
+ let will2 = Human(name: "Will", age: 66, gender: .female)
  
  
+ let chris = Human(name: "Chris", age: 55, gender: .male)
+ let will = Human(name: "Will", age: 66, gender: .female)
+ let kiiru = Human(name: "Kiiru", age: 35, gender: .male)
+ let jess = Human(name: "Jess", age: 12, gender: .female)
+
+ let humans = [chris, will, kiiru, jess]
  
+//
+// if will == will2 {
+//    print("Equatable")
+// }
+ 
+ 
+ for human in humans where human.age > 18 {
+    print(human.name)
+ }
+ 
+
+
  
  
  
