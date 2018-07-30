@@ -126,7 +126,8 @@ let copy = theData
 
  
  
- 
+ var array = [Int](repeating: 0, count: 5)
+
  
  
  
